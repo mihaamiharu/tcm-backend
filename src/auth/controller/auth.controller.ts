@@ -1,8 +1,15 @@
-import { Controller, Post, Body, ValidationPipe } from "@nestjs/common";
+import { Controller, Post, Body, ValidationPipe, Get, UseGuards } from "@nestjs/common";
 import { AuthService } from "../auth.service";
 import { RegisterUserDto } from "../dto/register-user.dto";
 import { LoginUserDto } from "../dto/login-user.dto";
+import { GetUser } from "../decorators/get-user.decorator";
+import { AuthGuard } from "@nestjs/passport";
 
+type AuthenticatedUser = {
+  id: string;
+  username: string;
+  role: string;
+};
 
 @Controller({
   path: 'auth',
@@ -19,5 +26,11 @@ export class AuthController {
   @Post('login')
   async login(@Body() loginUserDto: LoginUserDto) {
     return this.authService.login(loginUserDto);
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard()) 
+  getProfile(@GetUser() user: AuthenticatedUser) {
+    return user;
   }
 }
