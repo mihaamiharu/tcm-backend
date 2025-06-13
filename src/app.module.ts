@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { DatabaseModule } from './database/database.module'; // <-- IMPORT THE NEW MODULE
+import { DatabaseModule } from './database/database.module';
+import { ProjectsModule } from './projects/projects.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { DatabaseModule } from './database/database.module'; // <-- IMPORT THE N
     // Feature modules
     AuthModule,
     UsersModule,
+    ProjectsModule,
   ],
   controllers: [],
   providers: [],
