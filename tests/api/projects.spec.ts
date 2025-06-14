@@ -24,11 +24,22 @@ test.describe('POST /tcm/v1/projects', () => {
     let adminToken: string;
     let testerToken: string;
     let viewerToken: string;
+    const createdProjectIds: string[] = [];
 
     test.beforeAll(async ({ request }) => {
         adminToken = await getAuthToken(request, 'ADMIN');
         testerToken = await getAuthToken(request, 'TESTER');
         viewerToken = await getAuthToken(request, 'VIEWER');
+    });
+
+    test.afterEach(async ({ request }) => {
+        for (const id of createdProjectIds) {
+            await request.delete(`/tcm/v1/projects/${id}`, {
+                headers: { Authorization: `Bearer ${adminToken}` },
+            });
+        }
+        // Clear the array for the next test
+        createdProjectIds.length = 0;
     });
 
     test('TC-P01: Verify project creation with valid data', async ({ request }) => {
@@ -45,6 +56,7 @@ test.describe('POST /tcm/v1/projects', () => {
         expect(body).toHaveProperty('id');
         expect(body.name).toBe(projectName);
         expect(body.description).toBe('A valid description.');
+        createdProjectIds.push(body.id);
     });
 
     test('TC-N01: Attempt project creation as TESTER', async ({ request }) => {
@@ -101,6 +113,7 @@ test.describe('POST /tcm/v1/projects', () => {
         const body = await response.json();
         expect(body.name).toBe(projectName);
         expect(body.description).toBeNull(); // or undefined, depending on implementation
+        createdProjectIds.push(body.id);
     });
 
     test('TC-N06: Create a project with an empty name', async ({ request }) => {
@@ -127,6 +140,7 @@ test.describe('POST /tcm/v1/projects', () => {
         const body = await response.json();
         expect(body.name).toBe(projectName);
         expect(body.description).toBe('');
+        createdProjectIds.push(body.id);
     });
 
     test('TC-N08: Create a project with null values', async ({ request }) => {
@@ -154,6 +168,8 @@ test.describe('POST /tcm/v1/projects', () => {
         });
         expect(createResponse.ok(), `First project creation should be successful.`).toBeTruthy();
         expect(createResponse.status()).toBe(201);
+        const body = await createResponse.json();
+        createdProjectIds.push(body.id);
     
     
         // --- Step 2: Attempt to create it again with the exact same name ---
@@ -208,6 +224,8 @@ test.describe('POST /tcm/v1/projects', () => {
             },
         });
         expect(response.status()).toBe(201);
+        const body = await response.json();
+        createdProjectIds.push(body.id);
     });
 
 
@@ -223,6 +241,7 @@ test.describe('POST /tcm/v1/projects', () => {
         expect(response.status()).toBe(201);
         const body = await response.json();
         expect(body.name).toBe(specialName);
+        createdProjectIds.push(body.id);
     });
 
     test('TC-E03: Create a project with unicode/international characters', async ({ request }) => {
@@ -239,6 +258,7 @@ test.describe('POST /tcm/v1/projects', () => {
         const body = await response.json();
         expect(body.name).toBe(unicodeName);
         expect(body.description).toBe(unicodeDescription);
+        createdProjectIds.push(body.id);
     });
 });
 
@@ -247,6 +267,7 @@ test.describe('GET /tcm/v1/projects', () => {
     let testerToken: string;
     let viewerToken: string;
     let project1: any, project2: any;
+    const createdProjectIds: string[] = [];
 
     test.beforeAll(async ({ request }) => {
         adminToken = await getAuthToken(request, 'ADMIN');
@@ -259,12 +280,22 @@ test.describe('GET /tcm/v1/projects', () => {
             data: { name: `Project Alpha ${Date.now()}`, description: 'Alpha description' },
         });
         project1 = await p1_response.json();
+        createdProjectIds.push(project1.id);
 
         const p2_response = await request.post('/tcm/v1/projects', {
             headers: { Authorization: `Bearer ${adminToken}` },
             data: { name: `Project Beta ${Date.now() + 1}`, description: 'Beta description' },
         });
         project2 = await p2_response.json();
+        createdProjectIds.push(project2.id);
+    });
+
+    test.afterAll(async ({ request }) => {
+        for (const id of createdProjectIds) {
+            await request.delete(`/tcm/v1/projects/${id}`, {
+                headers: { Authorization: `Bearer ${adminToken}` },
+            });
+        }
     });
 
     test('TC-P02: ADMIN fetches projects', async ({ request }) => {
@@ -342,6 +373,7 @@ test.describe('GET /tcm/v1/projects/{id}', () => {
     let viewerToken: string;
     let adminProject: any;
     let unassignedProject: any;
+    const createdProjectIds: string[] = [];
 
     test.beforeAll(async ({ request }) => {
         adminToken = await getAuthToken(request, 'ADMIN');
@@ -354,6 +386,7 @@ test.describe('GET /tcm/v1/projects/{id}', () => {
             data: { name: projectName, description: '...' },
         });
         adminProject = await p1_res.json();
+        createdProjectIds.push(adminProject.id);
         adminProject.name = projectName;
 
         // Another project that tester/viewer are not assigned to.
@@ -362,6 +395,15 @@ test.describe('GET /tcm/v1/projects/{id}', () => {
             data: { name: `Unassigned Project ${Date.now() + 1}`, description: '...' },
         });
         unassignedProject = await p2_res.json();
+        createdProjectIds.push(unassignedProject.id);
+    });
+
+    test.afterAll(async ({ request }) => {
+        for (const id of createdProjectIds) {
+            await request.delete(`/tcm/v1/projects/${id}`, {
+                headers: { Authorization: `Bearer ${adminToken}` },
+            });
+        }
     });
 
     test('TC-P07: ADMIN views any project by ID', async ({ request }) => {
@@ -428,6 +470,7 @@ test.describe('PATCH /tcm/v1/projects/{id}', () => {
     let adminToken: string;
     let testerToken: string;
     let projectToUpdate: any;
+    const createdProjectIds: string[] = [];
   
     // Before these tests run, log in and create a project to work with
     test.beforeAll(async ({ request }) => {
@@ -440,6 +483,15 @@ test.describe('PATCH /tcm/v1/projects/{id}', () => {
       });
       expect(response.ok()).toBeTruthy();
       projectToUpdate = await response.json();
+      createdProjectIds.push(projectToUpdate.id);
+    });
+
+    test.afterAll(async ({ request }) => {
+        for (const id of createdProjectIds) {
+            await request.delete(`/tcm/v1/projects/${id}`, {
+                headers: { Authorization: `Bearer ${adminToken}` },
+            });
+        }
     });
   
     test('should allow an ADMIN to update a project', async ({ request }) => {
@@ -475,6 +527,8 @@ test.describe('PATCH /tcm/v1/projects/{id}', () => {
           data: { name: targetName },
       });
       expect(p2_res.ok()).toBeTruthy();
+      const p2_body = await p2_res.json();
+      createdProjectIds.push(p2_body.id);
   
       // Now, try to update our original project to have the same name
       const response = await request.patch(`/tcm/v1/projects/${projectToUpdate.id}`, {
@@ -485,3 +539,76 @@ test.describe('PATCH /tcm/v1/projects/{id}', () => {
       expect(response.status()).toBe(409);
     });
   });
+
+test.describe('DELETE /tcm/v1/projects/{id}', () => {
+    let adminToken: string;
+    let testerToken: string;
+    let projectToDelete: any;
+
+    test.beforeAll(async ({ request }) => {
+        adminToken = await getAuthToken(request, 'ADMIN');
+        testerToken = await getAuthToken(request, 'TESTER');
+    });
+
+    // Create a new project before each test for isolation
+    test.beforeEach(async ({ request }) => {
+        const response = await request.post('/tcm/v1/projects', {
+            headers: { Authorization: `Bearer ${adminToken}` },
+            data: { name: `Project for Deletion ${Date.now()}`, description: 'Delete me' },
+        });
+        expect(response.ok()).toBeTruthy();
+        projectToDelete = await response.json();
+    });
+
+    // Safeguard to clean up the project if a test fails before deleting it.
+    test.afterEach(async ({ request }) => {
+        if (projectToDelete) {
+            await request.delete(`/tcm/v1/projects/${projectToDelete.id}`, {
+                headers: { Authorization: `Bearer ${adminToken}` },
+                failOnStatusCode: false, // Don't error if it's already gone
+            });
+        }
+    });
+
+    test('TC-D01: ADMIN can delete a project', async ({ request }) => {
+        const response = await request.delete(`/tcm/v1/projects/${projectToDelete.id}`, {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(response.status()).toBe(204);
+
+        // Verify it's gone
+        const getResponse = await request.get(`/tcm/v1/projects/${projectToDelete.id}`, {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(getResponse.status()).toBe(404);
+        
+        projectToDelete = null; // Prevent afterEach from trying to delete again
+    });
+
+    test('TC-D02: TESTER cannot delete a project', async ({ request }) => {
+        const response = await request.delete(`/tcm/v1/projects/${projectToDelete.id}`, {
+            headers: { Authorization: `Bearer ${testerToken}` },
+        });
+        expect(response.status()).toBe(403);
+    });
+
+    test('TC-D03: Unauthenticated user cannot delete a project', async ({ request }) => {
+        const response = await request.delete(`/tcm/v1/projects/${projectToDelete.id}`);
+        expect(response.status()).toBe(401);
+    });
+
+    test('TC-D04: Deleting a non-existent project ID returns 404', async ({ request }) => {
+        const nonExistentId = '00000000-1111-2222-3333-444444444444';
+        const response = await request.delete(`/tcm/v1/projects/${nonExistentId}`, {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(response.status()).toBe(404);
+    });
+
+    test('TC-D05: Deleting with a malformed project ID returns 400', async ({ request }) => {
+        const response = await request.delete('/tcm/v1/projects/not-a-uuid', {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(response.status()).toBe(400);
+    });
+});
