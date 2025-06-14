@@ -3,7 +3,7 @@ import { AuthService } from "../auth.service";
 import { RegisterUserDto } from "../dto/register-user.dto";
 import { LoginUserDto } from "../dto/login-user.dto";
 import { GetUser } from "../decorators/get-user.decorator";
-import { AuthGuard } from "@nestjs/passport";
+import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 
 type AuthenticatedUser = {
   id: string;
@@ -29,7 +29,7 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(AuthGuard()) 
+  @UseGuards(JwtAuthGuard)
   getProfile(@GetUser() user: AuthenticatedUser) {
     return user;
   }
