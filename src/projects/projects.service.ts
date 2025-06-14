@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, ReadPreference } from 'typeorm';
 import { Project } from '../database/entities/project.entity';
 import { ProjectMembership } from '../database/entities/project-membership.entity';
 import { CreateProjectDto } from '../auth/dto/create-project.dto';
@@ -113,5 +113,13 @@ export class ProjectsService {
   
     const updatedProject = this.projectRepository.merge(project, updateProjectDto);
     return this.projectRepository.save(updatedProject);
+  }
+
+  async remove(id: string): Promise<void> {
+    const result = await this.projectRepository.delete(id);
+
+    if (result.affected === 0) {
+      throw new NotFoundException(`Project with ID "${id}" not found.`);
+    }
   }
 }

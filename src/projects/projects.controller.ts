@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { CreateProjectDto } from 'src/auth/dto/create-project.dto';
@@ -46,5 +46,13 @@ export class ProjectsController {
       @GetUser() user: User,
     ) {
       return this.projectsService.update(id, updateProjectDto, user);
+    }
+
+    @Delete(':id')
+    @Roles('ADMIN') 
+    @UseGuards(RolesGuard) 
+    @HttpCode(204) 
+    remove(@Param('id', ParseUUIDPipe) id: string) {
+      return this.projectsService.remove(id);
     }
   }
