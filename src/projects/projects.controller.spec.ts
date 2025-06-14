@@ -7,6 +7,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 // Mock the service
 const mockProjectsService = {
   create: jest.fn(),
+  remove: jest.fn(),
 };
 
 describe('ProjectsController', () => {
@@ -75,6 +76,38 @@ describe('ProjectsController', () => {
       
       await expect(controller.createProject(createProjectDto, mockUser)).rejects.toThrow(Error);
       expect(service.create).toHaveBeenCalledWith(createProjectDto, mockUser);
+    });
+  });
+
+  describe('remove', () => {
+    const projectId = 'project-uuid';
+
+    it('should call projectsService.remove with the correct id', async () => {
+      // Arrange
+      mockProjectsService.remove.mockResolvedValue(undefined); // Simulate successful deletion
+
+      // Act
+      await controller.remove(projectId);
+
+      // Assert
+      expect(service.remove).toHaveBeenCalledWith(projectId);
+    });
+
+    it('should not throw an error on successful deletion', async () => {
+      // Arrange
+      mockProjectsService.remove.mockResolvedValue(undefined);
+
+      // Act & Assert
+      await expect(controller.remove(projectId)).resolves.not.toThrow();
+    });
+
+    it('should throw an error if the service throws an error', async () => {
+      // Arrange
+      const errorMessage = 'Project not found';
+      mockProjectsService.remove.mockRejectedValue(new Error(errorMessage));
+
+      // Act & Assert
+      await expect(controller.remove(projectId)).rejects.toThrow(Error);
     });
   });
 });
