@@ -19,6 +19,7 @@ const mockProjectRepository = {
   merge: jest.fn(),
   save: jest.fn(),
   createQueryBuilder: jest.fn(),
+  delete: jest.fn(),
 };
 
 const mockMembershipRepository = {
@@ -224,6 +225,31 @@ describe('ProjectsService', () => {
       await expect(service.update(projectId, updateDto, mockAdmin)).rejects.toThrow(
         ConflictException,
       );
+    });
+  });
+
+  describe('remove', () => {
+    const projectId = 'a-uuid';
+
+    it('should successfully delete a project if it exists', async () => {
+      mockProjectRepository.delete.mockResolvedValue({ affected: 1 });
+
+      await expect(service.remove(projectId)).resolves.not.toThrow();
+      expect(projectRepository.delete).toHaveBeenCalledWith(projectId);
+    });
+
+    it('should throw NotFoundException if the project to delete is not found', async () => {
+      mockProjectRepository.delete.mockResolvedValue({ affected: 0 });
+
+      await expect(service.remove(projectId)).rejects.toThrow(NotFoundException);
+      expect(projectRepository.delete).toHaveBeenCalledWith(projectId);
+    });
+
+    it('should throw an error if the repository throws an error', async () => {
+      const errorMessage = 'Database error';
+      mockProjectRepository.delete.mockRejectedValue(new Error(errorMessage));
+
+      await expect(service.remove(projectId)).rejects.toThrow(Error);
     });
   });
 });
