@@ -122,4 +122,21 @@ export class ProjectsService {
       throw new NotFoundException(`Project with ID "${id}" not found.`);
     }
   }
+  async listMembers(projectId: string, user: User): Promise<ProjectMembership[]> {
+    if (user.role !== 'ADMIN') {
+      const membership = await this.projectMembershipRepository.findOneBy({
+        project: { id: projectId },
+        user: { id: user.id },
+      });
+      if (!membership) {
+        // If they are not a system Admin and not a member, they can't see the team list.
+        throw new ForbiddenException('You do not have access to this project\'s members.');
+      }
+    }
+
+    return this.projectMembershipRepository.find({
+      where: { project: { id: projectId } },
+      relations: ['user'],
+    });
+  }
 }

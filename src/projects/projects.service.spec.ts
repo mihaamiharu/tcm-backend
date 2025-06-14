@@ -24,6 +24,7 @@ const mockProjectRepository = {
 
 const mockMembershipRepository = {
   findOneBy: jest.fn(),
+  find: jest.fn(),
 };
 
 const mockTransactionalEntityManager = {
@@ -250,6 +251,52 @@ describe('ProjectsService', () => {
       mockProjectRepository.delete.mockRejectedValue(new Error(errorMessage));
 
       await expect(service.remove(projectId)).rejects.toThrow(Error);
+    });
+  });
+
+  describe('listMembers', () => {
+    const projectId = 'project-uuid';
+    const adminUser = { id: 'admin-uuid', role: 'ADMIN' } as User;
+    const testerUser = { id: 'tester-uuid', role: 'TESTER' } as User;
+
+    it('should allow an ADMIN to list members without a membership check', async () => {
+      const expectedMembers = [{ id: 'membership-uuid' }];
+      mockMembershipRepository.find.mockResolvedValue(expectedMembers);
+      
+      const result = await service.listMembers(projectId, adminUser);
+      
+      expect(mockMembershipRepository.findOneBy).not.toHaveBeenCalled();
+      expect(mockMembershipRepository.find).toHaveBeenCalledWith({
+        where: { project: { id: projectId } },
+        relations: ['user'],
+      });
+      expect(result).toEqual(expectedMembers);
+    });
+
+    it('should allow a project member to list members', async () => {
+      const existingMembership = { id: 'membership-uuid' };
+      mockMembershipRepository.findOneBy.mockResolvedValue(existingMembership);
+      const expectedMembers = [existingMembership];
+      mockMembershipRepository.find.mockResolvedValue(expectedMembers);
+
+      const result = await service.listMembers(projectId, testerUser);
+
+      expect(mockMembershipRepository.findOneBy).toHaveBeenCalledWith({
+        project: { id: projectId },
+        user: { id: testerUser.id },
+      });
+      expect(mockMembershipRepository.find).toHaveBeenCalledWith({
+        where: { project: { id: projectId } },
+        relations: ['user'],
+      });
+      expect(result).toEqual(expectedMembers);
+    });
+
+    it('should throw ForbiddenException if a non-admin is not a project member', async () => {
+      mockMembershipRepository.findOneBy.mockResolvedValue(null);
+
+      await expect(service.listMembers(projectId, testerUser)).rejects.toThrow(ForbiddenException);
+      expect(mockMembershipRepository.find).not.toHaveBeenCalled();
     });
   });
 });

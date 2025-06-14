@@ -612,3 +612,78 @@ test.describe('DELETE /tcm/v1/projects/{id}', () => {
         expect(response.status()).toBe(400);
     });
 });
+
+test.describe('GET /tcm/v1/projects/{id}/members', () => {
+    let adminToken: string;
+    let testerToken: string;
+    let project: any;
+  
+    test.beforeAll(async ({ request }) => {
+      adminToken = await getAuthToken(request, 'ADMIN');
+      testerToken = await getAuthToken(request, 'TESTER');
+      
+      const response = await request.post('/tcm/v1/projects', {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: { name: `Project for Member Listing ${Date.now()}` },
+      });
+      expect(response.ok()).toBeTruthy();
+      project = await response.json();
+    });
+
+    test.afterAll(async ({ request }) => {
+        if (project) {
+            await request.delete(`/tcm/v1/projects/${project.id}`, {
+                headers: { Authorization: `Bearer ${adminToken}` },
+            });
+        }
+    });
+
+    test('TC-M01: ADMIN can list members of a project', async ({ request }) => {
+        const response = await request.get(`/tcm/v1/projects/${project.id}/members`, {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(response.status()).toBe(200);
+        const body = await response.json();
+        expect(Array.isArray(body)).toBe(true);
+        expect(body.length).toBe(1);
+        expect(body[0]).toHaveProperty('user');
+        expect(body[0].user.email).toBe('admin@example.com');
+    });
+
+    test('TC-M02: Non-member (TESTER) cannot list members', async ({ request }) => {
+        const response = await request.get(`/tcm/v1/projects/${project.id}/members`, {
+            headers: { Authorization: `Bearer ${testerToken}` },
+        });
+        expect(response.status()).toBe(403);
+    });
+
+    test('TC-M03: Unauthenticated user cannot list members', async ({ request }) => {
+        const response = await request.get(`/tcm/v1/projects/${project.id}/members`);
+        expect(response.status()).toBe(401);
+    });
+
+    test('TC-M04: Listing members for a non-existent project ID returns empty for ADMIN', async ({ request }) => {
+        const nonExistentId = '00000000-1111-2222-3333-555555555555';
+        const response = await request.get(`/tcm/v1/projects/${nonExistentId}/members`, {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(response.status()).toBe(200);
+        const body = await response.json();
+        expect(body).toEqual([]);
+    });
+
+    test('TC-M05: Listing members for a non-existent project ID returns 403 for non-member', async ({ request }) => {
+        const nonExistentId = '00000000-1111-2222-3333-666666666666';
+        const response = await request.get(`/tcm/v1/projects/${nonExistentId}/members`, {
+            headers: { Authorization: `Bearer ${testerToken}` },
+        });
+        expect(response.status()).toBe(403);
+    });
+
+    test('TC-M06: Listing members with a malformed project ID returns 400', async ({ request }) => {
+        const response = await request.get('/tcm/v1/projects/not-a-uuid/members', {
+            headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        expect(response.status()).toBe(400);
+    });
+});
