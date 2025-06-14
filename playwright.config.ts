@@ -11,7 +11,14 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts$/,
     },
   ],
-  reporter: 'html',
+  reporter: [
+    ['html'],
+    ['allure-playwright', {
+      detail: true,
+      outputFolder: 'allure-results',
+      suiteTitle: false
+    }]
+  ],
   fullyParallel: true,
   /* Configure number of workers */
   workers: 4,
