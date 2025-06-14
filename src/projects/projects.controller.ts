@@ -55,4 +55,12 @@ export class ProjectsController {
     remove(@Param('id', ParseUUIDPipe) id: string) {
       return this.projectsService.remove(id);
     }
+
+    @Get(':id/members')
+    listMembers(
+      @Param('id', ParseUUIDPipe) id: string,
+      @GetUser() user: User,
+    ) {
+      return this.projectsService.listMembers(id, user);
+    }
   }

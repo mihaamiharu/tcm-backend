@@ -16,6 +16,7 @@ export class User {
   @Column({ unique: true })
   username: string;
 
+  @Expose()
   @Column({ unique: true })
   email: string;
 

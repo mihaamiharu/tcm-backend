@@ -8,6 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 const mockProjectsService = {
   create: jest.fn(),
   remove: jest.fn(),
+  listMembers: jest.fn(),
 };
 
 describe('ProjectsController', () => {
@@ -108,6 +109,30 @@ describe('ProjectsController', () => {
 
       // Act & Assert
       await expect(controller.remove(projectId)).rejects.toThrow(Error);
+    });
+  });
+
+  describe('listMembers', () => {
+    const projectId = 'project-uuid';
+    const mockUser = { id: 'user-uuid' } as any;
+
+    it('should call projectsService.listMembers with the correct arguments', async () => {
+      mockProjectsService.listMembers.mockResolvedValue([]);
+      await controller.listMembers(projectId, mockUser);
+      expect(service.listMembers).toHaveBeenCalledWith(projectId, mockUser);
+    });
+
+    it('should return the result from the service', async () => {
+      const expectedMembers = [{ id: 'member-uuid' }];
+      mockProjectsService.listMembers.mockResolvedValue(expectedMembers);
+      const result = await controller.listMembers(projectId, mockUser);
+      expect(result).toEqual(expectedMembers);
+    });
+
+    it('should throw an error if the service throws an error', async () => {
+      const errorMessage = 'Access Denied';
+      mockProjectsService.listMembers.mockRejectedValue(new Error(errorMessage));
+      await expect(controller.listMembers(projectId, mockUser)).rejects.toThrow(Error);
     });
   });
 });
