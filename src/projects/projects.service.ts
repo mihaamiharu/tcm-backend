@@ -1,16 +1,19 @@
-import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Project } from '../database/entities/project.entity';
 import { ProjectMembership } from '../database/entities/project-membership.entity';
 import { CreateProjectDto } from '../auth/dto/create-project.dto';
 import { User } from '../database/entities/user.entity';
+import { UpdateProjectDto } from 'src/auth/dto/update-project.dto';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
+    @InjectRepository(ProjectMembership)
+    private readonly projectMembershipRepository: Repository<ProjectMembership>,
     private readonly entityManager: EntityManager,
   ) {}
 
@@ -20,29 +23,33 @@ export class ProjectsService {
       throw new ConflictException(`A project with the name "${createProjectDto.name}" already exists.`);
     }
 
-    return this.entityManager.transaction(async (transactionalEntityManager) => {
-      const newProject = transactionalEntityManager.create(Project, {
-        ...createProjectDto,
-        creator,
-      });
-      const savedProject = await transactionalEntityManager.save(newProject);
+    try {
+      return await this.entityManager.transaction(async (transactionalEntityManager) => {
+        const newProject = transactionalEntityManager.create(Project, {
+          ...createProjectDto,
+          creator,
+        });
+        const savedProject = await transactionalEntityManager.save(newProject);
 
-      const membership = transactionalEntityManager.create(ProjectMembership, {
-        project: savedProject,
-        user: creator,
-        role: 'ADMIN',
-      });
-      await transactionalEntityManager.save(membership);
+        const membership = transactionalEntityManager.create(ProjectMembership, {
+          project: savedProject,
+          user: creator,
+          role: 'ADMIN',
+        });
+        await transactionalEntityManager.save(membership);
 
-      const reloadedProject = await transactionalEntityManager.findOne(Project, {
-        where: { id: savedProject.id },
-        relations: ['creator'],
+        const reloadedProject = await transactionalEntityManager.findOne(Project, {
+          where: { id: savedProject.id },
+          relations: ['creator'],
+        });
+        if (!reloadedProject) {
+          throw new InternalServerErrorException('Failed to reload project after creation.');
+        }
+        return reloadedProject;
       });
-      if (!reloadedProject) {
-        throw new InternalServerErrorException('Failed to reload project after creation.');
-      }
-      return reloadedProject;
-    });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to create project due to a database error.');
+    }
   }
 
   async findAllForUser(user: User): Promise<Project[]> {
@@ -82,5 +89,29 @@ export class ProjectsService {
     }
 
     return project;
+  }
+
+  async update(id: string, updateProjectDto: UpdateProjectDto, user: User): Promise<Project> {
+    const project = await this.findOneByIdForUser(id, user);
+  
+    if (user.role !== 'ADMIN') {
+      const membership = await this.projectMembershipRepository.findOneBy({
+        project: { id },
+        user: { id: user.id },
+      });
+      if (membership?.role !== 'ADMIN') {
+        throw new ForbiddenException('You do not have permission to update this project.');
+      }
+    }
+  
+    if (updateProjectDto.name) {
+      const existing = await this.projectRepository.findOne({ where: { name: updateProjectDto.name } });
+      if (existing && existing.id !== id) {
+        throw new ConflictException(`A project with the name "${updateProjectDto.name}" already exists.`);
+      }
+    }
+  
+    const updatedProject = this.projectRepository.merge(project, updateProjectDto);
+    return this.projectRepository.save(updatedProject);
   }
 }

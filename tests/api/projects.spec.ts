@@ -413,13 +413,75 @@ test.describe('GET /tcm/v1/projects/{id}', () => {
         const response = await request.get('/tcm/v1/projects/invalid-id-format', {
             headers: { Authorization: `Bearer ${adminToken}` },
         });
-        expect(response.status()).toBe(400); // Thanks to ParseUUIDPipe
+        expect(response.status()).toBe(400);
     });
 
     test('TC-N18: View a project with an integer ID', async ({ request }) => {
         const response = await request.get('/tcm/v1/projects/12345', {
             headers: { Authorization: `Bearer ${adminToken}` },
         });
-        expect(response.status()).toBe(400); // Thanks to ParseUUIDPipe
+        expect(response.status()).toBe(400);
     });
 }); 
+
+test.describe('PATCH /tcm/v1/projects/{id}', () => {
+    let adminToken: string;
+    let testerToken: string;
+    let projectToUpdate: any;
+  
+    // Before these tests run, log in and create a project to work with
+    test.beforeAll(async ({ request }) => {
+      adminToken = await getAuthToken(request, 'ADMIN');
+      testerToken = await getAuthToken(request, 'TESTER');
+  
+      const response = await request.post('/tcm/v1/projects', {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: { name: `Project to be Updated ${Date.now()}`, description: 'Initial desc' },
+      });
+      expect(response.ok()).toBeTruthy();
+      projectToUpdate = await response.json();
+    });
+  
+    test('should allow an ADMIN to update a project', async ({ request }) => {
+      const updatedName = `Updated Name ${Date.now()}`;
+      const response = await request.patch(`/tcm/v1/projects/${projectToUpdate.id}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: {
+          name: updatedName,
+          description: 'This description was updated.',
+        },
+      });
+  
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expect(body.name).toBe(updatedName);
+      expect(body.description).toBe('This description was updated.');
+    });
+  
+    test('should return 404 Not Found when a non-member TESTER tries to update', async ({ request }) => {
+      // Note: The service logic throws a 404 if a non-system-admin can't access a project
+      const response = await request.patch(`/tcm/v1/projects/${projectToUpdate.id}`, {
+        headers: { Authorization: `Bearer ${testerToken}` },
+        data: { name: 'This should not work' },
+      });
+      expect(response.status()).toBe(404);
+    });
+  
+    test('should return 409 Conflict when updating to a name that already exists', async ({ request }) => {
+      // First, create a second project that "owns" the target name
+      const targetName = `Existing Project Name ${Date.now()}`;
+      const p2_res = await request.post('/tcm/v1/projects', {
+          headers: { Authorization: `Bearer ${adminToken}` },
+          data: { name: targetName },
+      });
+      expect(p2_res.ok()).toBeTruthy();
+  
+      // Now, try to update our original project to have the same name
+      const response = await request.patch(`/tcm/v1/projects/${projectToUpdate.id}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: { name: targetName },
+      });
+  
+      expect(response.status()).toBe(409);
+    });
+  });

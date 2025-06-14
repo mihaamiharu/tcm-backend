@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { CreateProjectDto } from 'src/auth/dto/create-project.dto';
@@ -6,6 +6,7 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { ProjectsService } from './projects.service';
 import { User } from 'src/database/entities/user.entity';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { UpdateProjectDto } from 'src/auth/dto/update-project.dto';
 
 
 @Controller({
@@ -36,5 +37,14 @@ export class ProjectsController {
         @GetUser() user: User,
     ) {
         return this.projectsService.findOneByIdForUser(id, user);
+    }
+
+    @Patch(':id')
+    update(
+      @Param('id', ParseUUIDPipe) id: string,
+      @Body() updateProjectDto: UpdateProjectDto,
+      @GetUser() user: User,
+    ) {
+      return this.projectsService.update(id, updateProjectDto, user);
     }
   }

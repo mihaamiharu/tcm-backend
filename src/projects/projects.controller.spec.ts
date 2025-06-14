@@ -40,15 +40,40 @@ describe('ProjectsController', () => {
   });
 
   describe('createProject', () => {
-    it('should call projectsService.create and return the result', async () => {
-      const createProjectDto = { name: 'Test Project', description: '' };
+    it('should create a project successfully when user is an admin', async () => {
+      const createProjectDto = { name: 'Test Project', description: 'A test project' };
       const mockUser = { id: 'user-uuid', role: 'ADMIN' } as any;
-      const expectedResult = { id: 'project-uuid', ...createProjectDto };
+      const expectedResult = { id: 'project-uuid', ...createProjectDto, owner: mockUser };
+      
       mockProjectsService.create.mockResolvedValue(expectedResult);
 
       const result = await controller.createProject(createProjectDto, mockUser);
 
       expect(result).toEqual(expectedResult);
+      expect(service.create).toHaveBeenCalledWith(createProjectDto, mockUser);
+    });
+
+    it('should throw an error if project creation fails', async () => {
+      const createProjectDto = { name: 'Test Project', description: 'A test project' };
+      const mockUser = { id: 'user-uuid', role: 'ADMIN' } as any;
+      const errorMessage = 'Error creating project';
+
+      mockProjectsService.create.mockRejectedValue(new Error(errorMessage));
+
+      await expect(controller.createProject(createProjectDto, mockUser)).rejects.toThrow(Error);
+      expect(service.create).toHaveBeenCalledWith(createProjectDto, mockUser);
+    });
+
+    it('should handle invalid input gracefully', async () => {
+      // Assuming validation is handled by DTOs and pipes, this test verifies the controller's behavior with what might be passed
+      // if validation was somehow bypassed or is part of the service logic.
+      const createProjectDto = { name: '', description: '' }; // Invalid name
+      const mockUser = { id: 'user-uuid', role: 'ADMIN' } as any;
+      const errorMessage = 'Invalid input';
+
+      mockProjectsService.create.mockRejectedValue(new Error(errorMessage));
+      
+      await expect(controller.createProject(createProjectDto, mockUser)).rejects.toThrow(Error);
       expect(service.create).toHaveBeenCalledWith(createProjectDto, mockUser);
     });
   });
